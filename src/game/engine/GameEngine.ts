@@ -175,10 +175,6 @@ export class GameEngine {
     
     this.playTime += dt
     this.car.update(dt, input)
-    if (this.car.y > 500) {
-      this.car.y = 500
-      if (this.car.speed < 0) this.car.speed = 0
-    }
     this.environment.update(dt)
     this.sceneManager.update(dt)
 
@@ -199,18 +195,30 @@ export class GameEngine {
   }
 
   private keepCarOnRoad(dt: number): void {
+    if (this.car.y > 200) {
+      this.car.y = 0
+      this.car.x = 0
+      this.car.speed = 0
+      this.car.angle = -Math.PI / 2
+      this.camera.reset(0, 0)
+      return
+    }
+
     const roadCenter = this.track.getRoadCenter(-this.car.y)
     const offset = this.car.x - roadCenter.x
     const halfRoad = GAME_CONFIG.ROAD_WIDTH / 2 - this.car.width / 2
 
-    if (Math.abs(offset) > halfRoad) {
-      if (Math.abs(offset) > halfRoad + 50) {
-        this.car.x = roadCenter.x + Math.sign(offset) * (halfRoad + 50)
-        this.car.speed *= 0.88
-      } else {
-        this.car.speed *= 0.96
-      }
+    if (Math.abs(offset) > halfRoad + 200) {
+      this.car.x = roadCenter.x
+      this.car.speed *= 0.5
+      this.camera.addShake(0.8)
+    } else if (Math.abs(offset) > halfRoad + 50) {
+      this.car.x = roadCenter.x + Math.sign(offset) * (halfRoad + 50)
+      this.car.speed *= 0.88
       this.camera.addShake(0.35)
+    } else if (Math.abs(offset) > halfRoad) {
+      this.car.speed *= 0.96
+      this.camera.addShake(0.2)
     }
   }
 

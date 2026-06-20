@@ -77,7 +77,7 @@ export class Car {
         : this.acceleration
       this.speed = clamp(this.speed + accel * dt * 60, 0, effectiveMaxSpeed)
     } else if (input.down) {
-      this.speed = clamp(this.speed - this.brakePower * dt * 60, -this.maxSpeed * 0.3, this.maxSpeed)
+      this.speed = clamp(this.speed - this.brakePower * dt * 60, 0, this.maxSpeed)
     } else {
       this.speed *= this.drifting ? GAME_CONFIG.DRIFT_FRICTION : GAME_CONFIG.FRICTION
       if (Math.abs(this.speed) < 0.01) this.speed = 0

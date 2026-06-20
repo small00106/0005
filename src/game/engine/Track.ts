@@ -138,6 +138,58 @@ export class Track {
     for (const key of segKeysToDelete) {
       this.segments.delete(key)
     }
+
+    const decKeysToDelete: string[] = []
+    for (const key of this.decorations.keys()) {
+      const parts = key.split('_')
+      if (parts.length === 2) {
+        const idx = parseInt(parts[1], 10)
+        if (!isNaN(idx) && (idx < minKeep || idx > maxKeep)) {
+          decKeysToDelete.push(key)
+        }
+      }
+    }
+    for (const key of decKeysToDelete) {
+      this.decorations.delete(key)
+    }
+
+    const markKeysToDelete: string[] = []
+    for (const key of this.roadMarkings.keys()) {
+      const parts = key.split('_')
+      if (parts.length === 2) {
+        const idx = parseInt(parts[1], 10)
+        if (!isNaN(idx) && (idx < minKeep || idx > maxKeep)) {
+          markKeysToDelete.push(key)
+        }
+      }
+    }
+    for (const key of markKeysToDelete) {
+      this.roadMarkings.delete(key)
+    }
+
+    const curveKeysToDelete: number[] = []
+    for (const key of this.curveCache.keys()) {
+      if (key < minKeep || key > maxKeep) {
+        curveKeysToDelete.push(key)
+      }
+    }
+    for (const key of curveKeysToDelete) {
+      this.curveCache.delete(key)
+    }
+
+    const xOffsetKeysToDelete: number[] = []
+    for (const key of this.xOffsetCache.keys()) {
+      if (key < minKeep || key > maxKeep) {
+        xOffsetKeysToDelete.push(key)
+      }
+    }
+    for (const key of xOffsetKeysToDelete) {
+      this.xOffsetCache.delete(key)
+    }
+    if (this.lastCachedIndex < minKeep) {
+      this.lastCachedIndex = -1
+      this.lastCachedOffset = 0
+    }
   }
 
   getPositionAt(distance: number): { x: number; y: number; angle: number } {
@@ -259,7 +311,7 @@ export class Track {
   ): void {
     ctx.fillStyle = '#ffffff'
     const viewStart = Math.max(0, cameraDistance - 100)
-    const viewEnd = cameraDistance + endIndex * this.segmentLength
+    const viewEnd = (endIndex + 1) * this.segmentLength
 
     for (const [key, mark] of this.roadMarkings) {
       const markDist = -mark.y
@@ -287,7 +339,7 @@ export class Track {
   ): void {
     const brightness = this.getTimeBrightness(timeOfDay)
     const viewStart = Math.max(0, cameraDistance - 100)
-    const viewEnd = cameraDistance + endIndex * this.segmentLength
+    const viewEnd = (endIndex + 1) * this.segmentLength
 
     const sortedDecs: { depth: number; dec: DecorationItem }[] = []
     for (const [, dec] of this.decorations) {
