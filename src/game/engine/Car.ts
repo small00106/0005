@@ -17,7 +17,7 @@ export interface CarState {
 export class Car {
   x: number = 0
   y: number = 0
-  angle: number = 0
+  angle: number = -Math.PI / 2
   speed: number = 0
   maxSpeed: number = GAME_CONFIG.MAX_SPEED
   acceleration: number = GAME_CONFIG.ACCELERATION
@@ -34,10 +34,10 @@ export class Car {
 
   private nitroRegenTimer: number = 0
 
-  constructor(x: number = 0, y: number = 0, angle: number = 0) {
+  constructor(x: number = 0, y: number = 0) {
     this.x = x
     this.y = y
-    this.angle = angle
+    this.angle = -Math.PI / 2
     this.initWheels()
   }
 
@@ -126,7 +126,7 @@ export class Car {
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.save()
     ctx.translate(this.x, this.y)
-    ctx.rotate(this.angle + this.driftAngle * 0.2)
+    ctx.rotate(this.angle + Math.PI / 2 + this.driftAngle * 0.2)
 
     if (this.usingNitro) {
       ctx.shadowColor = '#00D4FF'
@@ -207,10 +207,10 @@ export class Car {
     }
   }
 
-  reset(x: number = 0, y: number = 0, angle: number = 0): void {
+  reset(x: number = 0, y: number = 0): void {
     this.x = x
     this.y = y
-    this.angle = angle
+    this.angle = -Math.PI / 2
     this.speed = 0
     this.nitro = this.maxNitro
     this.drifting = false

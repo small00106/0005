@@ -47,7 +47,7 @@ export class GameEngine {
     this.ctx = ctx
     this.callbacks = callbacks
 
-    this.car = new Car(0, 0, Math.PI / 2)
+    this.car = new Car(0, 0)
     this.track = new Track()
     this.camera = new Camera()
     this.particles = new ParticleSystem()
@@ -120,9 +120,10 @@ export class GameEngine {
   }
 
   reset(): void {
-    this.car.reset(0, 0, Math.PI / 2)
-    this.camera.reset(0, 150, Math.PI / 2)
+    this.car.reset(0, 0)
+    this.camera.reset(0, 0)
     this.particles.clear()
+    this.track.clear()
     this.environment.reset()
     this.sceneManager.reset()
     this.speedLines = []
@@ -139,12 +140,13 @@ export class GameEngine {
     this.car.speed = save.currentSpeed
     this.car.nitro = save.nitro
     this.car.totalDistance = save.totalDistance
+    this.car.angle = -Math.PI / 2
     this.environment.timeOfDay = save.timeOfDay
     this.environment.weather = save.weather
     this.sceneManager.setScene(save.currentScene)
     this.sceneManager.sceneTimer = save.sceneProgress * this.sceneManager.getCurrentSceneConfig().duration
     this.playTime = save.playTime
-    this.camera.reset(0, save.totalDistance + 150, Math.PI / 2)
+    this.camera.reset(0, save.totalDistance)
   }
 
   private loop = (): void => {
@@ -181,7 +183,6 @@ export class GameEngine {
     this.camera.follow(
       this.car.x,
       this.car.y,
-      this.car.angle,
       this.car.speed,
       this.car.usingNitro
     )
@@ -201,16 +202,15 @@ export class GameEngine {
     if (Math.abs(offset) > halfRoad) {
       if (Math.abs(offset) > halfRoad + 50) {
         this.car.x = roadCenter.x + Math.sign(offset) * (halfRoad + 50)
-        this.car.speed *= 0.9
+        this.car.speed *= 0.88
       } else {
-        this.car.speed *= 0.97
+        this.car.speed *= 0.96
       }
-      this.camera.addShake(0.3)
+      this.camera.addShake(0.35)
     }
   }
 
   private updateParticles(dt: number, input: InputState): void {
-    const carState = this.car.getState()
     const wheelPositions = this.car.getWheelWorldPositions()
 
     if (this.car.drifting) {
@@ -219,7 +219,7 @@ export class GameEngine {
         this.driftSmokeTimer = 0
         for (const wheel of wheelPositions.slice(2)) {
           if (wheel.skidding) {
-            this.particles.emitSmoke(wheel.x, wheel.y, this.car.angle, 1)
+            this.particles.emitSmoke(wheel.x, wheel.y, this.car.angle, 2)
           }
         }
       }
@@ -233,34 +233,37 @@ export class GameEngine {
         const hh = this.car.height / 2
         const cos = Math.cos(this.car.angle)
         const sin = Math.sin(this.car.angle)
+        const rearY = hh
         const leftExhaust = {
-          x: this.car.x + (-hw + 10) * cos - hh * sin,
-          y: this.car.y + (-hw + 10) * sin + hh * cos,
+          x: this.car.x + (-hw + 10) * cos - rearY * sin,
+          y: this.car.y + (-hw + 10) * sin + rearY * cos,
         }
         const rightExhaust = {
-          x: this.car.x + (hw - 10) * cos - hh * sin,
-          y: this.car.y + (hw - 10) * sin + hh * cos,
+          x: this.car.x + (hw - 10) * cos - rearY * sin,
+          y: this.car.y + (hw - 10) * sin + rearY * cos,
         }
-        this.particles.emitNitroFlame(leftExhaust.x, leftExhaust.y, this.car.angle, 2)
-        this.particles.emitNitroFlame(rightExhaust.x, rightExhaust.y, this.car.angle, 2)
+        this.particles.emitNitroFlame(leftExhaust.x, leftExhaust.y, this.car.angle, 3)
+        this.particles.emitNitroFlame(rightExhaust.x, rightExhaust.y, this.car.angle, 3)
       }
     }
 
-    if (Math.abs(this.car.speed) > GAME_CONFIG.MAX_SPEED * 0.5) {
+    if (Math.abs(this.car.speed) > GAME_CONFIG.MAX_SPEED * 0.4) {
       this.trailTimer += dt
       if (this.trailTimer >= GAME_CONFIG.TRAIL_EMIT_RATE) {
         this.trailTimer = 0
         const hw = this.car.width / 2
+        const hh = this.car.height / 2
         const cos = Math.cos(this.car.angle)
         const sin = Math.sin(this.car.angle)
+        const rearY = hh
         this.particles.emitSpeedTrail(
-          this.car.x - hw * cos,
-          this.car.y - hw * sin,
+          this.car.x - hw * cos - rearY * sin,
+          this.car.y - hw * sin + rearY * cos,
           this.car.angle
         )
         this.particles.emitSpeedTrail(
-          this.car.x + hw * cos,
-          this.car.y + hw * sin,
+          this.car.x + hw * cos - rearY * sin,
+          this.car.y + hw * sin + rearY * cos,
           this.car.angle
         )
       }
@@ -270,14 +273,14 @@ export class GameEngine {
   }
 
   private updateSpeedLines(dt: number): void {
-    const speedFactor = this.car.speed / GAME_CONFIG.MAX_SPEED
-    const targetCount = Math.floor(speedFactor * 30)
+    const speedFactor = Math.min(this.car.speed / GAME_CONFIG.MAX_SPEED, 1)
+    const targetCount = Math.floor(speedFactor * 40)
 
     while (this.speedLines.length < targetCount) {
       this.speedLines.push({
         x: randomRange(0, GAME_CONFIG.CANVAS_WIDTH),
         y: randomRange(0, GAME_CONFIG.CANVAS_HEIGHT),
-        length: randomRange(20, 60) * speedFactor,
+        length: randomRange(30, 80) * speedFactor,
         alpha: 0,
       })
     }
@@ -286,8 +289,8 @@ export class GameEngine {
     }
 
     for (const line of this.speedLines) {
-      line.alpha = speedFactor * 0.6
-      line.y += 20 * speedFactor * dt * 60
+      line.alpha = speedFactor * 0.55
+      line.y += 25 * speedFactor * dt * 60
       if (line.y > GAME_CONFIG.CANVAS_HEIGHT) {
         line.y = -line.length
         line.x = randomRange(0, GAME_CONFIG.CANVAS_WIDTH)
@@ -297,25 +300,25 @@ export class GameEngine {
 
   private updateTireMarks(dt: number): void {
     if (this.car.drifting || (this.input.getState().down && Math.abs(this.car.speed) > 2)) {
-      if (Math.random() > 0.5) {
+      if (Math.random() > 0.4) {
         const wheelPositions = this.car.getWheelWorldPositions()
         for (const wheel of wheelPositions.slice(2)) {
           this.tireMarks.push({
             x: wheel.x,
             y: wheel.y,
             angle: this.car.angle,
-            alpha: 0.5,
+            alpha: 0.55,
           })
         }
       }
     }
 
-    if (this.tireMarks.length > 200) {
-      this.tireMarks.splice(0, this.tireMarks.length - 200)
+    if (this.tireMarks.length > 250) {
+      this.tireMarks.splice(0, this.tireMarks.length - 250)
     }
 
     for (let i = this.tireMarks.length - 1; i >= 0; i--) {
-      this.tireMarks[i].alpha -= dt * 0.05
+      this.tireMarks[i].alpha -= dt * 0.04
       if (this.tireMarks[i].alpha <= 0) {
         this.tireMarks.splice(i, 1)
       }
@@ -325,7 +328,7 @@ export class GameEngine {
   private updateRain(dt: number): void {
     const count = this.environment.getRainParticleCount()
     if (count > 0) {
-      this.particles.emitRain(Math.ceil(count / 30), GAME_CONFIG.CANVAS_WIDTH)
+      this.particles.emitRain(Math.ceil(count / 25), GAME_CONFIG.CANVAS_WIDTH)
     }
   }
 
@@ -334,7 +337,6 @@ export class GameEngine {
     const W = GAME_CONFIG.CANVAS_WIDTH
     const H = GAME_CONFIG.CANVAS_HEIGHT
 
-    ctx.save()
     ctx.clearRect(0, 0, W, H)
 
     const sceneColors = this.sceneManager.getBlendedSceneColors()
@@ -342,7 +344,6 @@ export class GameEngine {
 
     this.drawMountains(ctx, W, H)
 
-    ctx.save()
     this.camera.apply(ctx, W, H)
 
     this.drawTireMarks(ctx)
@@ -366,31 +367,30 @@ export class GameEngine {
     this.drawVignette(ctx, W, H)
 
     this.sceneManager.drawTransitionOverlay(ctx, W, H)
-
-    ctx.restore()
   }
 
   private drawMountains(ctx: CanvasRenderingContext2D, W: number, H: number): void {
-    const parallax = this.camera.y * 0.02
+    const parallax = -this.camera.y * 0.015
     
-    ctx.fillStyle = 'rgba(50, 40, 80, 0.6)'
     for (let layer = 0; layer < 3; layer++) {
-      const baseY = H * 0.5 + layer * 40
-      const amplitude = 80 - layer * 20
-      const offset = parallax * (1 + layer * 0.5)
+      const baseY = H * 0.45 + layer * 45
+      const amplitude = 90 - layer * 25
+      const offset = parallax * (1 + layer * 0.6)
       
+      const colors = ['rgba(30, 25, 50, 0.75)', 'rgba(50, 40, 75, 0.55)', 'rgba(70, 60, 100, 0.35)']
+      
+      ctx.fillStyle = colors[layer]
       ctx.beginPath()
       ctx.moveTo(0, H)
-      for (let x = 0; x <= W; x += 20) {
-        const y = baseY + Math.sin((x + offset + layer * 100) * 0.005) * amplitude
+      for (let x = 0; x <= W; x += 18) {
+        const y = baseY + Math.sin((x + offset + layer * 120) * 0.0045) * amplitude
+          + Math.sin((x + offset * 0.5) * 0.011) * (amplitude * 0.3)
         ctx.lineTo(x, y)
       }
       ctx.lineTo(W, H)
       ctx.closePath()
-      ctx.globalAlpha = 0.3 + layer * 0.1
       ctx.fill()
     }
-    ctx.globalAlpha = 1
   }
 
   private drawSpeedLines(ctx: CanvasRenderingContext2D): void {
@@ -408,22 +408,20 @@ export class GameEngine {
   }
 
   private drawTireMarks(ctx: CanvasRenderingContext2D): void {
-    ctx.save()
     for (const mark of this.tireMarks) {
       ctx.save()
       ctx.translate(mark.x, mark.y)
-      ctx.rotate(mark.angle)
+      ctx.rotate(mark.angle + Math.PI / 2)
       ctx.fillStyle = `rgba(0, 0, 0, ${mark.alpha})`
-      ctx.fillRect(-4, -2, 8, 12)
+      ctx.fillRect(-4, -3, 8, 14)
       ctx.restore()
     }
-    ctx.restore()
   }
 
   private drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number): void {
-    const gradient = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.7)
+    const gradient = ctx.createRadialGradient(W / 2, H / 2, W * 0.32, W / 2, H / 2, W * 0.72)
     gradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)')
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.45)')
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, W, H)
   }
@@ -434,7 +432,7 @@ export class GameEngine {
     const state: GameState = {
       running: this.running,
       paused: this.paused,
-      speed: Math.abs(this.car.speed / GAME_CONFIG.MAX_SPEED * 300),
+      speed: Math.abs(this.car.speed / GAME_CONFIG.MAX_SPEED * 320),
       nitro: this.car.nitro,
       maxNitro: this.car.maxNitro,
       currentScene: this.sceneManager.currentScene,
