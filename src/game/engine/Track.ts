@@ -30,6 +30,8 @@ export class Track {
   roadMarkings: Map<string, RoadMarking> = new Map()
   private curveCache: Map<number, number> = new Map()
   private xOffsetCache: Map<number, number> = new Map()
+  private lastCachedIndex: number = -1
+  private lastCachedOffset: number = 0
 
   constructor() {}
 
@@ -47,14 +49,34 @@ export class Track {
   }
 
   private getXOffset(index: number): number {
+    if (index <= 0) return 0
     if (this.xOffsetCache.has(index)) {
       return this.xOffsetCache.get(index)!
     }
-    let offset = 0
-    for (let i = 0; i <= index; i++) {
-      offset += this.getCurveValue(i) * this.segmentLength
+    let startIdx: number
+    let offset: number
+    if (index > this.lastCachedIndex) {
+      startIdx = this.lastCachedIndex + 1
+      offset = this.lastCachedOffset
+    } else {
+      startIdx = 0
+      offset = 0
+      for (let i = index - 1; i >= 0; i--) {
+        if (this.xOffsetCache.has(i)) {
+          startIdx = i + 1
+          offset = this.xOffsetCache.get(i)!
+          break
+        }
+      }
     }
-    this.xOffsetCache.set(index, offset)
+    for (let i = startIdx; i <= index; i++) {
+      offset += this.getCurveValue(i) * this.segmentLength
+      this.xOffsetCache.set(i, offset)
+      if (i > this.lastCachedIndex) {
+        this.lastCachedIndex = i
+        this.lastCachedOffset = offset
+      }
+    }
     return offset
   }
 
@@ -107,10 +129,14 @@ export class Track {
 
     const minKeep = Math.max(0, centerIndex - range * 3)
     const maxKeep = centerIndex + range * 3
+    const segKeysToDelete: number[] = []
     for (const key of this.segments.keys()) {
       if (key < minKeep || key > maxKeep) {
-        this.segments.delete(key)
+        segKeysToDelete.push(key)
       }
+    }
+    for (const key of segKeysToDelete) {
+      this.segments.delete(key)
     }
   }
 

@@ -175,6 +175,10 @@ export class GameEngine {
     
     this.playTime += dt
     this.car.update(dt, input)
+    if (this.car.y > 500) {
+      this.car.y = 500
+      if (this.car.speed < 0) this.car.speed = 0
+    }
     this.environment.update(dt)
     this.sceneManager.update(dt)
 
